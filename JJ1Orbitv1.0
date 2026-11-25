@@ -1,0 +1,407 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+local TweenService = game:GetService("TweenService")
+local CoreGui = game:GetService("CoreGui")
+
+local LP = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+
+local Window = Rayfield:CreateWindow({
+    Name = "JJ1 Orbit",
+    Icon = 0,
+    LoadingTitle = "JJ1 Orbit V1.0",
+    LoadingSubtitle = "by duongjj1",
+    Theme = "Ocean",
+    ConfigurationSaving = { Enabled = false },
+    KeySystem = false,
+})
+
+local OrbitTab = Window:CreateTab("Orbit", 4483362458)
+
+local Config = {
+    Enabled = false,
+    Radius = 12,
+    Height = 3,
+    OrbitSpeed = 16,
+    UnlimitedSpeed = false,
+    Speed = 2,
+    TargetMode = "Closest",
+    ManualTarget = nil,
+    Smoothness = 0.15,
+    LockRotation = true,
+    StartPosition = nil,
+}
+
+local function getAllTargets()
+    local list = {}
+    local killers = Workspace:FindFirstChild("Players") and Workspace.Players:FindFirstChild("Killers")
+    if killers then
+        for _, m in ipairs(killers:GetChildren()) do
+            if m:IsA("Model") and m:FindFirstChild("HumanoidRootPart") then
+                local h = m:FindFirstChildOfClass("Humanoid")
+                if h and h.Health > 0 then
+                    table.insert(list, { Name = "[Killer] " .. m.Name, Model = m })
+                end
+            end
+        end
+    end
+    local survivors = Workspace:FindFirstChild("Players") and Workspace.Players:FindFirstChild("Survivors")
+    if survivors then
+        for _, m in ipairs(survivors:GetChildren()) do
+            if m:IsA("Model") and m:FindFirstChild("HumanoidRootPart") then
+                local h = m:FindFirstChildOfClass("Humanoid")
+                if h and h.Health > 0 then
+                    table.insert(list, { Name = "[Survivor] " .. m.Name, Model = m })
+                end
+            end
+        end
+    end
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local h = p.Character:FindFirstChildOfClass("Humanoid")
+            if h and h.Health > 0 then
+                table.insert(list, { Name = "[Player] " .. p.Name, Model = p.Character })
+            end
+        end
+    end
+    local ingame = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("Ingame")
+    if ingame then
+        for _, m in ipairs(ingame:GetChildren()) do
+            if m:IsA("Model") and m:FindFirstChild("HumanoidRootPart") then
+                local h = m:FindFirstChildOfClass("Humanoid")
+                if h and h.Health > 0 then
+                    table.insert(list, { Name = "[NPC] " .. m.Name, Model = m })
+                end
+            end
+        end
+    end
+    return list
+end
+
+local function getClosestTarget()
+    local char = LP.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+    local best, bestDist = nil, math.huge
+    for _, t in ipairs(getAllTargets()) do
+        local r = t.Model:FindFirstChild("HumanoidRootPart")
+        if r then
+            local d = (r.Position - hrp.Position).Magnitude
+            if d < bestDist then bestDist, best = d, t.Model end
+        end
+    end
+    return best
+end
+
+local function resolveTarget()
+    if Config.TargetMode == "Manual" then
+        if Config.ManualTarget and Config.ManualTarget.Parent then
+            local h = Config.ManualTarget:FindFirstChildOfClass("Humanoid")
+            if h and h.Health > 0 then return Config.ManualTarget end
+        end
+        return nil
+    elseif Config.TargetMode == "Killer" then
+        local k = Workspace:FindFirstChild("Players") and Workspace.Players:FindFirstChild("Killers")
+        if k then
+            for _, m in ipairs(k:GetChildren()) do
+                if m:IsA("Model") and m:FindFirstChild("HumanoidRootPart") then
+                    local h = m:FindFirstChildOfClass("Humanoid")
+                    if h and h.Health > 0 then return m end
+                end
+            end
+        end
+        return nil
+    end
+    return getClosestTarget()
+end
+
+local angle = 0
+local lastPos = nil
+local conn = nil
+
+local function returnToStart()
+    local char = LP.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hrp or not hum then return end
+    if Config.StartPosition then
+        hrp.CFrame = CFrame.new(Config.StartPosition)
+    end
+    hum.PlatformStand = false
+end
+
+local function stopOrbit(returnPos)
+    if conn then conn:Disconnect(); conn = nil end
+    lastPos = nil
+    local char = LP.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then hum.PlatformStand = false end
+    if returnPos then returnToStart() end
+end
+
+local function startOrbit()
+    stopOrbit(false)
+    local char = LP.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then Config.StartPosition = hrp.Position end
+    conn = RunService.Heartbeat:Connect(function(dt)
+        if not Config.Enabled then return end
+        local c = LP.Character
+        local h = c and c:FindFirstChild("HumanoidRootPart")
+        local hum = c and c:FindFirstChildOfClass("Humanoid")
+        if not h or not hum or hum.Health <= 0 then
+            stopOrbit(true)
+            Config.Enabled = false
+            return
+        end
+
+        local target = resolveTarget()
+        if not target then
+            stopOrbit(true)
+            Config.Enabled = false
+            return
+        end
+
+        local trp = target:FindFirstChild("HumanoidRootPart")
+        local thum = target:FindFirstChildOfClass("Humanoid")
+        if not trp or (thum and thum.Health <= 0) then
+            stopOrbit(true)
+            Config.Enabled = false
+            return
+        end
+
+        local speedFactor = Config.UnlimitedSpeed and 10 or Config.OrbitSpeed
+        angle = angle + (Config.Speed * math.pi * 2 * dt * (speedFactor / 16))
+        
+        local offset = Vector3.new(
+            math.cos(angle) * Config.Radius,
+            Config.Height,
+            math.sin(angle) * Config.Radius
+        )
+        local goal = trp.Position + offset
+
+        local newPos = goal
+        if lastPos then
+            newPos = lastPos:Lerp(goal, math.clamp(1 - Config.Smoothness, 0.05, 1))
+        end
+
+        h.CFrame = CFrame.new(newPos, Config.LockRotation and trp.Position or (newPos + (trp.Position - newPos).Unit * 5))
+        h.AssemblyLinearVelocity = Vector3.zero
+        h.AssemblyAngularVelocity = Vector3.zero
+        lastPos = newPos
+
+        if not hum.PlatformStand then hum.PlatformStand = true end
+    end)
+end
+
+local function showWelcome()
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "JJ1OrbitWelcome"
+    gui.ResetOnSpawn = false
+    gui.DisplayOrder = 999
+    gui.Parent = CoreGui
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 400, 0, 100)
+    frame.Position = UDim2.new(0.5, -200, 0.35, -50)
+    frame.BackgroundColor3 = Color3.fromRGB(20, 30, 40)
+    frame.BackgroundTransparency = 0.2
+    frame.BorderSizePixel = 0
+    frame.Parent = gui
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = frame
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(0, 200, 255)
+    stroke.Thickness = 2
+    stroke.Parent = frame
+
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 50)
+    title.Position = UDim2.new(0, 0, 0, 5)
+    title.BackgroundTransparency = 1
+    title.Text = "Welcome to JJ1 Orbit V1.0!"
+    title.TextColor3 = Color3.fromRGB(0, 255, 255)
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 24
+    title.Parent = frame
+
+    local sub = Instance.new("TextLabel")
+    sub.Size = UDim2.new(1, 0, 0, 40)
+    sub.Position = UDim2.new(0, 0, 0, 50)
+    sub.BackgroundTransparency = 1
+    sub.Text = "Hope u love this script"
+    sub.TextColor3 = Color3.fromRGB(200, 220, 255)
+    sub.Font = Enum.Font.Gotham
+    sub.TextSize = 16
+    sub.Parent = frame
+
+    frame.Position = UDim2.new(0.5, -200, 1.2, 0)
+    TweenService:Create(frame, TweenInfo.new(0.8, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+        Position = UDim2.new(0.5, -200, 0.35, -50)
+    }):Play()
+
+    task.delay(3, function()
+        TweenService:Create(frame, TweenInfo.new(0.8, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+            Position = UDim2.new(0.5, -200, -0.5, 0)
+        }):Play()
+        task.wait(1)
+        gui:Destroy()
+    end)
+end
+
+showWelcome()
+
+OrbitTab:CreateToggle({
+    Name = "Start Orbit",
+    CurrentValue = false,
+    Flag = "OrbitEnabled",
+    Callback = function(v)
+        Config.Enabled = v
+        if v then
+            startOrbit()
+        else
+            stopOrbit(true)
+        end
+    end,
+})
+
+OrbitTab:CreateButton({
+    Name = "Stop Orbit",
+    Callback = function()
+        Config.Enabled = false
+        stopOrbit(true)
+    end,
+})
+
+OrbitTab:CreateSlider({
+    Name = "Radius",
+    Range = { 3, 60 },
+    Increment = 1,
+    Suffix = " studs",
+    CurrentValue = Config.Radius,
+    Flag = "OrbitRadius",
+    Callback = function(v) Config.Radius = v end,
+})
+
+OrbitTab:CreateSlider({
+    Name = "Height",
+    Range = { -10, 30 },
+    Increment = 1,
+    Suffix = " studs",
+    CurrentValue = Config.Height,
+    Flag = "OrbitHeight",
+    Callback = function(v) Config.Height = v end,
+})
+
+OrbitTab:CreateSlider({
+    Name = "Speed",
+    Range = { 0.1, 30 },
+    Increment = 0.1,
+    Suffix = " v/s",
+    CurrentValue = Config.Speed,
+    Flag = "OrbitSpeed",
+    Callback = function(v) Config.Speed = v end,
+})
+
+OrbitTab:CreateSlider({
+    Name = "Orbit Movement Speed",
+    Range = { 1, 100 },
+    Increment = 1,
+    CurrentValue = Config.OrbitSpeed,
+    Flag = "OrbitMovementSpeed",
+    Callback = function(v) Config.OrbitSpeed = v end,
+})
+
+OrbitTab:CreateToggle({
+    Name = "Unlimited Speed",
+    CurrentValue = false,
+    Flag = "UnlimitedSpeed",
+    Callback = function(v) Config.UnlimitedSpeed = v end,
+})
+
+OrbitTab:CreateSlider({
+    Name = "Smoothness",
+    Range = { 0, 0.95 },
+    Increment = 0.05,
+    CurrentValue = Config.Smoothness,
+    Flag = "OrbitSmooth",
+    Callback = function(v) Config.Smoothness = v end,
+})
+
+local targetOptions = {}
+local targetMap = {}
+local function refreshTargetDropdown()
+    targetOptions = {}
+    targetMap = {}
+    for _, t in ipairs(getAllTargets()) do
+        table.insert(targetOptions, t.Name)
+        targetMap[t.Name] = t.Model
+    end
+    if #targetOptions == 0 then targetOptions = { "No targets" } end
+end
+
+local targetDropdown
+targetDropdown = OrbitTab:CreateDropdown({
+    Name = "Select Player/NPC to Orbit",
+    Options = targetOptions,
+    CurrentOption = {},
+    Flag = "OrbitTargetDropdown",
+    Callback = function(opt)
+        local name = type(opt) == "table" and opt[1] or opt
+        if name and targetMap[name] then
+            Config.ManualTarget = targetMap[name]
+            Config.TargetMode = "Manual"
+        end
+    end,
+})
+
+OrbitTab:CreateButton({
+    Name = "Refresh Target List",
+    Callback = function()
+        refreshTargetDropdown()
+        if targetDropdown and targetDropdown.Refresh then
+            targetDropdown:Refresh(targetOptions)
+        end
+        Rayfield:Notify({ Title = "Orbit", Content = "Target list refreshed", Duration = 3 })
+    end,
+})
+
+OrbitTab:CreateDropdown({
+    Name = "Target Mode",
+    Options = { "Closest", "Killer", "Manual" },
+    CurrentOption = { Config.TargetMode },
+    Flag = "OrbitTargetMode",
+    Callback = function(opt)
+        Config.TargetMode = type(opt) == "table" and opt[1] or opt
+    end,
+})
+
+OrbitTab:CreateToggle({
+    Name = "Lock Rotation (Look at target)",
+    CurrentValue = true,
+    Flag = "OrbitLockRot",
+    Callback = function(v) Config.LockRotation = v end,
+})
+
+OrbitTab:CreateButton({
+    Name = "Set Manual Target to Closest",
+    Callback = function()
+        local t = getClosestTarget()
+        if t then
+            Config.ManualTarget = t
+            Config.TargetMode = "Manual"
+            Rayfield:Notify({ Title = "Orbit", Content = "Target: " .. t.Name, Duration = 3 })
+        else
+            Rayfield:Notify({ Title = "Orbit", Content = "No target found", Duration = 3 })
+        end
+    end,
+})
+
+refreshTargetDropdown()
