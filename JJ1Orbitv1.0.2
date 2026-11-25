@@ -6,14 +6,13 @@ local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
 
 local LP = Players.LocalPlayer
-local Camera = Workspace.CurrentCamera
 
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
 local Window = Rayfield:CreateWindow({
-    Name = "JJ1 Orbit",
+    Name = "JJ1 Orbit V1.0.2",
     Icon = 0,
-    LoadingTitle = "JJ1 Orbit V1.0",
+    LoadingTitle = "JJ1 Orbit V1.0.2",
     LoadingSubtitle = "by duongjj1",
     Theme = "Ocean",
     ConfigurationSaving = { Enabled = false },
@@ -36,46 +35,16 @@ local Config = {
     StartPosition = nil,
 }
 
-local function getAllTargets()
+local function getAllPlayers()
     local list = {}
-    local killers = Workspace:FindFirstChild("Players") and Workspace.Players:FindFirstChild("Killers")
-    if killers then
-        for _, m in ipairs(killers:GetChildren()) do
-            if m:IsA("Model") and m:FindFirstChild("HumanoidRootPart") then
-                local h = m:FindFirstChildOfClass("Humanoid")
-                if h and h.Health > 0 then
-                    table.insert(list, { Name = "[Killer] " .. m.Name, Model = m })
-                end
-            end
-        end
-    end
-    local survivors = Workspace:FindFirstChild("Players") and Workspace.Players:FindFirstChild("Survivors")
-    if survivors then
-        for _, m in ipairs(survivors:GetChildren()) do
-            if m:IsA("Model") and m:FindFirstChild("HumanoidRootPart") then
-                local h = m:FindFirstChildOfClass("Humanoid")
-                if h and h.Health > 0 then
-                    table.insert(list, { Name = "[Survivor] " .. m.Name, Model = m })
-                end
-            end
-        end
-    end
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
             local h = p.Character:FindFirstChildOfClass("Humanoid")
             if h and h.Health > 0 then
-                table.insert(list, { Name = "[Player] " .. p.Name, Model = p.Character })
-            end
-        end
-    end
-    local ingame = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("Ingame")
-    if ingame then
-        for _, m in ipairs(ingame:GetChildren()) do
-            if m:IsA("Model") and m:FindFirstChild("HumanoidRootPart") then
-                local h = m:FindFirstChildOfClass("Humanoid")
-                if h and h.Health > 0 then
-                    table.insert(list, { Name = "[NPC] " .. m.Name, Model = m })
-                end
+                local displayName = p.DisplayName or p.Name
+                local username = p.Name
+                local label = displayName .. " (@" .. username .. ")"
+                table.insert(list, { Name = label, Model = p.Character })
             end
         end
     end
@@ -87,7 +56,7 @@ local function getClosestTarget()
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return nil end
     local best, bestDist = nil, math.huge
-    for _, t in ipairs(getAllTargets()) do
+    for _, t in ipairs(getAllPlayers()) do
         local r = t.Model:FindFirstChild("HumanoidRootPart")
         if r then
             local d = (r.Position - hrp.Position).Magnitude
@@ -203,55 +172,47 @@ local function showWelcome()
     gui.Name = "JJ1OrbitWelcome"
     gui.ResetOnSpawn = false
     gui.DisplayOrder = 999
+    gui.IgnoreGuiInset = true
     gui.Parent = CoreGui
 
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 400, 0, 100)
-    frame.Position = UDim2.new(0.5, -200, 0.35, -50)
-    frame.BackgroundColor3 = Color3.fromRGB(20, 30, 40)
-    frame.BackgroundTransparency = 0.2
-    frame.BorderSizePixel = 0
-    frame.Parent = gui
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 10)
-    corner.Parent = frame
-
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(0, 200, 255)
-    stroke.Thickness = 2
-    stroke.Parent = frame
+    local bg = Instance.new("Frame")
+    bg.Size = UDim2.new(1, 0, 1, 0)
+    bg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    bg.BackgroundTransparency = 1
+    bg.BorderSizePixel = 0
+    bg.Parent = gui
 
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 50)
-    title.Position = UDim2.new(0, 0, 0, 5)
+    title.Size = UDim2.new(1, 0, 0, 120)
+    title.Position = UDim2.new(0, 0, 0.5, -80)
     title.BackgroundTransparency = 1
-    title.Text = "Welcome to JJ1 Orbit V1.0!"
-    title.TextColor3 = Color3.fromRGB(0, 255, 255)
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 24
-    title.Parent = frame
+    title.Text = "JJ1"
+    title.TextColor3 = Color3.fromRGB(0, 180, 255)
+    title.Font = Enum.Font.GothamBlack
+    title.TextSize = 100
+    title.TextTransparency = 1
+    title.Parent = bg
 
     local sub = Instance.new("TextLabel")
     sub.Size = UDim2.new(1, 0, 0, 40)
-    sub.Position = UDim2.new(0, 0, 0, 50)
+    sub.Position = UDim2.new(0, 0, 0.5, 30)
     sub.BackgroundTransparency = 1
-    sub.Text = "Hope u love this script"
+    sub.Text = "Welcome to JJ1Orbit v1.0.2"
     sub.TextColor3 = Color3.fromRGB(200, 220, 255)
     sub.Font = Enum.Font.Gotham
-    sub.TextSize = 16
-    sub.Parent = frame
+    sub.TextSize = 20
+    sub.TextTransparency = 1
+    sub.Parent = bg
 
-    frame.Position = UDim2.new(0.5, -200, 1.2, 0)
-    TweenService:Create(frame, TweenInfo.new(0.8, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-        Position = UDim2.new(0.5, -200, 0.35, -50)
-    }):Play()
+    TweenService:Create(bg, TweenInfo.new(0.6), { BackgroundTransparency = 0.1 }):Play()
+    TweenService:Create(title, TweenInfo.new(0.8), { TextTransparency = 0 }):Play()
+    TweenService:Create(sub, TweenInfo.new(1.0), { TextTransparency = 0 }):Play()
 
-    task.delay(3, function()
-        TweenService:Create(frame, TweenInfo.new(0.8, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
-            Position = UDim2.new(0.5, -200, -0.5, 0)
-        }):Play()
-        task.wait(1)
+    task.delay(2.5, function()
+        TweenService:Create(title, TweenInfo.new(0.6), { TextTransparency = 1 }):Play()
+        TweenService:Create(sub, TweenInfo.new(0.6), { TextTransparency = 1 }):Play()
+        TweenService:Create(bg, TweenInfo.new(0.6), { BackgroundTransparency = 1 }):Play()
+        task.wait(0.8)
         gui:Destroy()
     end)
 end
@@ -335,21 +296,25 @@ OrbitTab:CreateSlider({
     Callback = function(v) Config.Smoothness = v end,
 })
 
+local searchText = ""
 local targetOptions = {}
 local targetMap = {}
+
 local function refreshTargetDropdown()
     targetOptions = {}
     targetMap = {}
-    for _, t in ipairs(getAllTargets()) do
-        table.insert(targetOptions, t.Name)
-        targetMap[t.Name] = t.Model
+    for _, t in ipairs(getAllPlayers()) do
+        if searchText == "" or t.Name:lower():find(searchText:lower(), 1, true) then
+            table.insert(targetOptions, t.Name)
+            targetMap[t.Name] = t.Model
+        end
     end
-    if #targetOptions == 0 then targetOptions = { "No targets" } end
+    if #targetOptions == 0 then targetOptions = { "No matches" } end
 end
 
 local targetDropdown
 targetDropdown = OrbitTab:CreateDropdown({
-    Name = "Select Player/NPC to Orbit",
+    Name = "Select Player to Orbit",
     Options = targetOptions,
     CurrentOption = {},
     Flag = "OrbitTargetDropdown",
@@ -358,6 +323,20 @@ targetDropdown = OrbitTab:CreateDropdown({
         if name and targetMap[name] then
             Config.ManualTarget = targetMap[name]
             Config.TargetMode = "Manual"
+        end
+    end,
+})
+
+OrbitTab:CreateInput({
+    Name = "Search Player Name",
+    PlaceholderText = "Type DisplayName or Username...",
+    RemoveTextAfterFocusLost = false,
+    Flag = "OrbitSearch",
+    Callback = function(text)
+        searchText = text
+        refreshTargetDropdown()
+        if targetDropdown and targetDropdown.Refresh then
+            targetDropdown:Refresh(targetOptions)
         end
     end,
 })
